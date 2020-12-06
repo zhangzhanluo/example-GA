@@ -2,7 +2,9 @@
     author: zhanluo zhang
     date: 20201204
     description: an example of Genetic Algorithm
-    reference: https://blog.csdn.net/ha_ha_ha233/article/details/91364937
+    reference:
+        [Genetic Algorithm] https://blog.csdn.net/ha_ha_ha233/article/details/91364937
+        [Matplotlib Animation] https://blog.csdn.net/briblue/article/details/84940997
 """
 import os
 import numpy as np
@@ -13,15 +15,29 @@ import matplotlib.animation as animation
 class GA:
     """
     遗传算法求解工具，可以对染色体长度、种群数量，交叉概率，遗传概率进行设定。
+    一个简单的使用例子为：
+
+    from ga import GA
+
+    ga_solver = GA()
+    records = ga_solver.revolution()
+    best_x, best_y = ga_solver.get_best_result(records[-1])
     """
-    def __init__(self, dna_size=15, population_size=100, crossover_rate=0.8, mutation_rate=0.003):
+
+    def __init__(self, dna_size=15, population_size=100, crossover_rate=0.8, mutation_rate=0.003, n_generations=100):
         self.dna_size = dna_size
         self.pop_size = population_size
         self.crossover_rate = crossover_rate
         self.mutation_rate = mutation_rate
+        self.n_generations = n_generations
         self.x_range = (0, 30)
         self.fitness_func = lambda _x: 80 * np.sin(1.5 * _x) + 60 * np.cos(_x) - _x ** 2 + 30 * _x
         self.fitness_func_latex = '$80sin(x)+60cos(x)-x^2+30x$'
+        self.pic_path = 'Pics/'
+        self.data_path = 'Data/'
+        for path in [self.pic_path, self.data_path]:
+            if not os.path.exists(path):
+                os.mkdir(path)
 
     def translate_dna(self, pop):
         """
@@ -97,12 +113,44 @@ class GA:
             new_pop.append(child)
         return np.array(new_pop)
 
-    def plot_population(self, pop, n_iteration):
+    def revolution(self):
+        """
+        演化过程。
+
+        :return: 演化过程中的所有种群。list<-np.array: (POP_SIZE, DNA_SIZE)
+        """
+        pop_records = []
+        # 初始化种群
+        pop = self.initial_pop()
+        pop_records.append(pop)
+        # 演化
+        for _ in range(self.n_generations):
+            # 评估群体中个体的适应度
+            fit = self.get_fitness(pop)
+            # 选择
+            pop = self.select(pop, fit)
+            # 交叉和变异
+            pop = self.crossover_and_mutation(pop)
+            pop_records.append(pop)
+        return pop_records
+
+    def get_best_result(self, pop):
+        """
+        获取种群中最佳的个体的值及最佳结果。
+
+        :param pop: 种群所有个体的DNA编码。np.array: (POP_SIZE, DNA_SIZE)
+        :return: 最佳个体所代表的解的值及最佳结果。
+        """
+        target_function_values = self.fitness_func(self.translate_dna(pop)).tolist()
+        best_idx = target_function_values.index(max(target_function_values))
+        return self.translate_dna(pop[best_idx]), target_function_values[best_idx]
+
+    def plot_population(self, pop, n_generation):
         """
         对种群进行可视化。
 
         :param pop: 种群所有个体的DNA编码。np.array: (POP_SIZE, DNA_SIZE)
-        :param n_iteration: int。
+        :param n_generation: int。
         :return: matplotlib ax。可以进一步使用plt.savefig等函数对图片进行编辑和保存。
         """
         xs = self.translate_dna(pop)
@@ -112,7 +160,7 @@ class GA:
         plt.title('Genetic Algorithm')
         plt.xlabel('x')
         plt.ylabel('Target Function')
-        plt.text(30, 300, 'Generation: {}'.format(n_iteration), c='red', fontsize=11, ha='right')
+        plt.text(30, 300, 'Generation: {}'.format(n_generation), c='red', fontsize=11, ha='right')
         plt.text(30, -170, 'https://github.com/zhangzhanluo/example-GA', fontsize=6, ha='right')
         plt.text(-1, 283, 'DNA Size: {}\nPopulation Size: {}\nCrossover Rate: {}\nMutation Rate: {}'.format(
             self.dna_size, self.pop_size, self.crossover_rate, self.mutation_rate
@@ -120,11 +168,31 @@ class GA:
         plt.legend(fontsize=9)
         return plt.gca()
 
+    def plot_evolution(self, pops, generation_range):
+        """
+        对演化过程使用箱线图进行分析。
+
+        :param pops: 种群的演化记录。list<-np.array: (POP_SIZE, DNA_SIZE)
+        :param generation_range: 需要可视化的范围，不包括右边界。[start, end]
+        :return: matplotlib ax。可以进一步使用plt.savefig等函数对图片进行编辑和保存。
+        """
+        fitness_records = [self.fitness_func(self.translate_dna(x)) for x in
+                           pops[generation_range[0]: generation_range[1]]]
+        plt.boxplot(fitness_records, labels=range(generation_range[0], generation_range[1]))
+        plt.xlabel('Generation')
+        plt.ylabel('Target Function Values')
+        plt.text(plt.gca().get_xlim()[-1], plt.gca().get_ylim()[0],
+                 'DNA Size: {}\nPopulation Size: {}\nCrossover Rate: {}\nMutation Rate: {}'.format(
+                     self.dna_size, self.pop_size, self.crossover_rate, self.mutation_rate
+                 ), ha='right', va='bottom')
+        return plt.gca()
+
 
 class GAAnimation(GA):
     """
     对遗传算法的种群记录使用动图可视化。继承了GA类的属性和方法。
     """
+
     def __init__(self, pops, dna_size=15, population_size=100, crossover_rate=0.8, mutation_rate=0.003):
         GA.__init__(self, dna_size, population_size, crossover_rate, mutation_rate)
         self.fig, self.ax = plt.subplots()
@@ -171,26 +239,27 @@ class GAAnimation(GA):
 
         :return: 无返回值。
         """
-        anim = animation.FuncAnimation(self.fig, self.update, frames=len(self.frames), interval=200,
+        anim = animation.FuncAnimation(self.fig, self.update, frames=len(self.frames), interval=500,
                                        init_func=self.init, blit=True)
         plt.legend()
-        anim.save('Generation Algorithm Illustration.gif', writer='imagemagick', dpi=300)
+        anim.save(self.pic_path + 'Generation Algorithm Illustration.gif', writer='imagemagick', dpi=300)
         plt.close(self.fig)
 
 
 if __name__ == '__main__':
     # 定义参数
-    n_generations = 100
+    num_generations = 80
     ga = GA(dna_size=15,
             population_size=100,
             crossover_rate=0.8,
-            mutation_rate=0.003)
+            mutation_rate=0.003,
+            n_generations=num_generations)
     population_records = []
     # 初始化种群
     population = ga.initial_pop()
     population_records.append(population)
-    # 演化
-    for _ in range(n_generations):
+    # 演化100代
+    for _ in range(100):
         # 评估群体中个体的适应度
         fitness = ga.get_fitness(population)
         # 选择
@@ -205,15 +274,21 @@ if __name__ == '__main__':
     plt.show()
 
     # 对任一种群进行可视化
-    n = np.random.randint(0, n_generations, 1)[0]
+    n = np.random.randint(0, num_generations, 1)[0]
     _ = ga.plot_population(population_records[n], n)
     plt.show()
 
     # 对最终种群进行可视化
-    n = n_generations
+    n = num_generations
     _ = ga.plot_population(population_records[n], n)
     plt.show()
 
-    # 对演化进行可视化，这一步比较耗费时间，想要快速得到结果可以将anim.save函数内的dpi调低。
+    # 使用箱线图对演化进行可视化。
+    plt.figure(figsize=(15, 4))
+    _ = ga.plot_evolution(population_records, [0, num_generations+1])
+    plt.xticks(range(0, num_generations+1, 5), range(0, num_generations+1, 5))
+    plt.show()
+
+    # 使用动图对演化进行可视化，这一步比较耗费时间，想要快速得到结果可以将anim.save函数内的dpi调低。
     ga_animation = GAAnimation(pops=population_records)
     ga_animation.plot()

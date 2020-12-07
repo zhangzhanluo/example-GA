@@ -196,8 +196,9 @@ class GAAnimation(GA):
     对遗传算法的种群记录使用动图可视化。继承了GA类的属性和方法。
     """
 
-    def __init__(self, pops, dna_size=15, population_size=100, crossover_rate=0.8, mutation_rate=0.003):
-        GA.__init__(self, dna_size, population_size, crossover_rate, mutation_rate)
+    def __init__(self, pops, ga_solver):
+        GA.__init__(self, ga_solver.dna_size, ga_solver.pop_size, ga_solver.crossover_rate,
+                    ga_solver.mutation_rate)
         self.fig, self.ax = plt.subplots()
         self.ln = None
         self.text = None
@@ -295,7 +296,7 @@ if __name__ == '__main__':
     plt.show()
 
     # 使用箱线图对演化进行可视化。
-    _ = ga.plot_evolution(population_records, [0, num_generations+1], fig_size=(15, 4))
+    _ = ga.plot_evolution(population_records, [0, num_generations + 1], fig_size=(15, 4))
     plt.show()
 
     # 使用动图对演化进行可视化，这一步比较耗费时间，想要快速得到结果可以将anim.save函数内的dpi调低。

@@ -168,19 +168,22 @@ class GA:
         plt.legend(fontsize=9)
         return plt.gca()
 
-    def plot_evolution(self, pops, generation_range):
+    def plot_evolution(self, pops, generation_range, fig_size=(8, 3)):
         """
         对演化过程使用箱线图进行分析。
 
         :param pops: 种群的演化记录。list<-np.array: (POP_SIZE, DNA_SIZE)
         :param generation_range: 需要可视化的范围，不包括右边界。[start, end]
+        :param figsize: 图片大小， tuple or list，英寸单位， 1 in = 2.54 cm
         :return: matplotlib ax。可以进一步使用plt.savefig等函数对图片进行编辑和保存。
         """
+        plt.figure(figsize=fig_size)
         fitness_records = [self.fitness_func(self.translate_dna(x)) for x in
                            pops[generation_range[0]: generation_range[1]]]
         plt.boxplot(fitness_records, labels=range(generation_range[0], generation_range[1]))
         plt.xlabel('Generation')
         plt.ylabel('Target Function Values')
+        plt.xticks(range(0, len(fitness_records), 5), range(generation_range[0], generation_range[1], 5))
         plt.text(plt.gca().get_xlim()[-1], plt.gca().get_ylim()[0],
                  'DNA Size: {}\nPopulation Size: {}\nCrossover Rate: {}\nMutation Rate: {}'.format(
                      self.dna_size, self.pop_size, self.crossover_rate, self.mutation_rate
@@ -203,11 +206,19 @@ class GAAnimation(GA):
     def init(self):
         """
         动图初始化。
+        使用方法：
+
+        from ga import GA, GAAnimation
+
+        ga_solver = GA()
+        population_records = ga_solver.revolution()
+        ga_animation = GAAnimation(pops=population_records)
+        ga_animation.plot()
 
         :return: 需要动图中进行更新的artists。
         """
         x_range = np.linspace(self.x_range[0], self.x_range[-1], 500)
-        self.ax.plot(x_range, self.fitness_func(x_range), c='black', label=ga.fitness_func_latex)
+        self.ax.plot(x_range, self.fitness_func(x_range), c='black', label=self.fitness_func_latex)
         self.ln, = self.ax.plot([], [], 'ro', markersize=5, animated=True, label='Current Population')
         self.text = self.ax.text(23, 300, '', animated=True, c='red', fontsize=11)
         plt.xlabel('x')
@@ -284,9 +295,7 @@ if __name__ == '__main__':
     plt.show()
 
     # 使用箱线图对演化进行可视化。
-    plt.figure(figsize=(15, 4))
-    _ = ga.plot_evolution(population_records, [0, num_generations+1])
-    plt.xticks(range(0, num_generations+1, 5), range(0, num_generations+1, 5))
+    _ = ga.plot_evolution(population_records, [0, num_generations+1], fig_size=(15, 4))
     plt.show()
 
     # 使用动图对演化进行可视化，这一步比较耗费时间，想要快速得到结果可以将anim.save函数内的dpi调低。

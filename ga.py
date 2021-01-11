@@ -300,5 +300,5 @@ if __name__ == '__main__':
     plt.show()
 
     # 使用动图对演化进行可视化，这一步比较耗费时间，想要快速得到结果可以将anim.save函数内的dpi调低。
-    ga_animation = GAAnimation(pops=population_records)
+    ga_animation = GAAnimation(pops=population_records, ga_solver=ga)
     ga_animation.plot()
